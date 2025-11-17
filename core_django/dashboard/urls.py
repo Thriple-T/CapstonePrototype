@@ -19,4 +19,7 @@ urlpatterns = [
 
     # Payment Paths
     path('student/<int:student_pk>/add-payment/', views.add_payment, name='add_payment'),
+
+    # Dashboard Analytics Path
+    path('analytics/', views.dashboard_analytics, name='dashboard_analytics'),
 ]

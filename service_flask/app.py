@@ -4,8 +4,6 @@ from flask import Flask, jsonify, request
 from functools import wraps
 from dotenv import load_dotenv
 
-# --- App Setup ---
-
 app = Flask(__name__)
 load_dotenv()
 SHARED_SECRET_KEY = os.environ.get('SHARED_SECRET_KEY')
@@ -66,7 +64,7 @@ def get_data(token_payload):
     'token_payload' is passed in from the decorator.
     """
     
-    # With this, can now trust the data in the payload
+    # Can now trust the data in the payload
     user_id = token_payload.get('user_id')
 
     # For this prototype, just send back a success message.
@@ -107,6 +105,51 @@ def validate_student(token_payload):
         "validation_ok": True,
         "message": "Student data passed all external validation checks."
     }), 200
+
+@app.route("/api/v1/predict-risk", methods=['POST'])
+@token_required
+def predict_risk(token_payload):
+    """
+    ML Endpoint: Predicts student dropout risk based on financial and academic data.
+    """
+    data = request.get_json()
+    
+    # 1. Extract features for the model
+    # In a real app, these would be inputs to a loaded .pkl model
+    balance = float(data.get('current_balance', 0))
+    course_count = int(data.get('course_count', 0))
+    
+    # 2. Apply Logic (Simulated ML Model)
+    # Rule: If they owe > $500 OR have 0 courses, they are high risk.
+    risk_score = 0
+    risk_label = "Low Risk"
+    
+    if balance > 500:
+        risk_score += 50
+    if balance > 1000:
+        risk_score += 30
+        
+    if course_count == 0:
+        risk_score += 40
+    elif course_count < 2:
+        risk_score += 10
+        
+    # Cap score at 100
+    risk_score = min(risk_score, 100)
+    
+    if risk_score > 75:
+        risk_label = "Critical"
+    elif risk_score > 40:
+        risk_label = "Moderate Risk"
+        
+    return jsonify({
+        "status": "success",
+        "student_id": data.get('student_id'),
+        "prediction": {
+            "risk_score": risk_score,
+            "label": risk_label
+        }
+    })
 
 # --- Run the App ---
 

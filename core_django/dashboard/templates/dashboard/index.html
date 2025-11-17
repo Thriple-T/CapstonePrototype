@@ -58,15 +58,14 @@
 
         <h1>SayarDesk Prototype</h1>
         
-        <p>A secure server-to-server API call to the Flask microservice was just performed.</p>
+        <p>A secure server-to-server API call to Django & Flask's microservice.</p>
+        <p>More features will be done soon, this is as far as I can do for now</p>
 
         <p>
         You are logged in as: <strong>{{ request.user.username }}</strong>
         <a href="{% url 'admin:logout' %}">(Logout)</a>
 
         </p>
-
-        **<p><a href="{% url 'add_student' %}">Add a New Student</a></p>**
 
         <hr>
 
@@ -86,6 +85,17 @@
         {% endif %}
 
     </div>
+
+    <h1>SayarDesk Dashboard</h1>
+
+    <p style="margin-bottom: 20px;">
+        <a href="{% url 'dashboard_analytics' %}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+            View Financial Summary 📊
+        </a>
+    </p>
+    {% if error %}
+        <div style="color: red;">Error connecting to Flask: {{ error }}</div>
+    {% endif %}
 
 <p><a href="{% url 'add_student' %}">Add a New Student</a></p>
     <p><a href="{% url 'course_list' %}">Manage Your Courses</a></p>
@@ -135,6 +145,38 @@
             </table>
         {% else %}
             {% endif %}
+
+    <hr style="margin: 40px 0;">
+
+    <h2>Your Course List (<a href="{% url 'course_list' %}">Manage All Courses</a>)</h2>
+
+    {% if courses %}
+        <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+            <thead style="background-color: #f4f4f4;">
+                <tr style="text-align: left;">
+                    <th style="padding: 10px;">Course Name</th>
+                    <th style="padding: 10px;">Code</th>
+                    <th style="padding: 10px;">Cost</th>
+                    <th style="padding: 10px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for course in courses %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px;"><strong>{{ course.name }}</strong></td>
+                    <td style="padding: 10px;">{{ course.course_code }}</td>
+                    <td style="padding: 10px;">${{ course.cost|floatformat:2 }}</td>
+                    <td style="padding: 10px;">
+                        <a href="{% url 'manage_roster' course.pk %}" style="color: blue;">Roster ({{ course.student_set.count }})</a> |
+                        <a href="{% url 'edit_course' course.pk %}">Edit</a> 
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>You have not created any courses yet. <a href="{% url 'add_course' %}">Add your first course now.</a></p>
+    {% endif %}
 
 </body>
 </html>

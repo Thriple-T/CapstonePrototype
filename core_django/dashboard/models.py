@@ -7,29 +7,22 @@ class Course(models.Model):
     name = models.CharField(max_length=200)
     course_code = models.CharField(max_length=20, blank=True, null=True)
     cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    
     def __str__(self):
         return f"{self.name} ({self.user.username})"
 
-# This is our central model for storing student data
 class Student(models.Model):
-    # Status Choices 
     class StudentStatus(models.TextChoices):
         ACTIVE = 'ACT', 'Active'
         LEAVE = 'LVE', 'On Leave'
         DROPPED = 'DRP', 'Dropped Out'
 
-    # Links this student record to the Django User who created it
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    
-    # Core Student Data
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
-    
-    # Identification and Contact
     student_id = models.CharField(max_length=50, unique=True, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     
-    # Status/ Financial Tracking
     status = models.CharField(
         max_length=3,
         choices=StudentStatus.choices,
@@ -41,27 +34,21 @@ class Student(models.Model):
     date_added = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Ensures no two students have the same name combination under the same user 
         unique_together = ('student_id', 'first_name', 'last_name') 
 
     @property
     def absolute_balance(self):
-        """Returns the absolute value of the current balance."""
         return abs(self.current_balance)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} (Owner: {self.user.username})"
-    
+
 class Payment(models.Model):
-    # Link to the student who is paying
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
-    
-    # Link to the user (teacher) who is logging the payment
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateField(default=timezone.now)
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"Payment of ${self.amount} for {self.student.first_name} on {self.payment_date}"
+        return f"Payment of ${self.amount} for {self.student.first_name}"
