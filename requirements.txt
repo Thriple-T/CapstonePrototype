@@ -1,0 +1,16 @@
+# Django Core
+django
+djangorestframework
+psycopg2-binary
+django-cors-headers
+
+# Flask ML Service
+flask
+
+# Shared
+gunicorn  # (For running both in production)
+requests  # (For Django to talk to Flask)
+
+# Others
+pyjwt
+python-dotenv

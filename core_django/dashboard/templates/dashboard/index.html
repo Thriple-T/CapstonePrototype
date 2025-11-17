@@ -1,0 +1,140 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SayarDesk Prototype</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 2em;
+            padding: 0;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2em;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 1em;
+            margin-bottom: 1em;
+        }
+        .error-box {
+            border: 2px solid #dc3545;
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 1em;
+            border-radius: 5px;
+            margin-top: 1em;
+        }
+        pre {
+            background-color: #eee;
+            padding: 1em;
+            border-radius: 5px;
+            white-space: pre-wrap; /* Allows text to wrap */
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div class="header">
+            <span>Logged in as: <strong>{{ request.user.username }}</strong></span>
+            
+            <a href="{% url 'admin:logout' %}">Logout</a>
+        </div>
+
+        <h1>SayarDesk Prototype</h1>
+        
+        <p>A secure server-to-server API call to the Flask microservice was just performed.</p>
+
+        <p>
+        You are logged in as: <strong>{{ request.user.username }}</strong>
+        <a href="{% url 'admin:logout' %}">(Logout)</a>
+
+        </p>
+
+        **<p><a href="{% url 'add_student' %}">Add a New Student</a></p>**
+
+        <hr>
+
+        <h2>Data from Flask:</h2>
+
+        {% if error %}
+            <div class="error-box">
+                <strong>Error:</strong> {{ error }}
+            </div>
+        
+        {% elif flask_response %}
+            <pre>{{ flask_response | stringformat:"s" }}</pre>
+            
+        {% else %}
+            <p>No response received from Flask.</p>
+        
+        {% endif %}
+
+    </div>
+
+<p><a href="{% url 'add_student' %}">Add a New Student</a></p>
+    <p><a href="{% url 'course_list' %}">Manage Your Courses</a></p>
+
+    <hr>
+        <h2>Your Enrolled Students</h2>
+        {% if students %}
+            <table style="width:100%; border-collapse: collapse;">
+                <thead style="background-color: #f4f4f4;">
+                    <tr style="text-align: left;">
+                        <th style="padding: 8px;">Name</th>
+                        <th style="padding: 8px;">Student ID</th>
+                        <th style="padding: 8px;">Fees Owed</th>
+                        <th style="padding: 8px;">Status</th>
+                        <th style="padding: 8px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">{{ student.first_name }} {{ student.last_name }}</td>
+                        <td style="padding: 8px;">{{ student.student_id|default:"N/A" }}</td>
+                        <td style="padding: 8px;">
+                            <td style="padding: 8px;">
+                                {% if student.current_balance > 0 %}
+                                    <span style="font-weight: bold; color: #dc3545;">
+                                        ${{ student.current_balance|floatformat:2 }}
+                                    </span>
+                                {% elif student.current_balance < 0 %}
+                                    <span style="color: green;">
+                                        Credit: ${{ student.absolute_balance|floatformat:2 }}
+                                    </span>
+                                {% else %}
+                                    $0.00
+                                {% endif %}
+                            </td>
+                        <td style="padding: 8px;">{{ student.get_status_display }}</td>
+                        
+                        <td style="padding: 8px;">
+                            <a href="{% url 'add_payment' student.pk %}" style="color: green; font-weight: bold;">Add Payment</a> |
+                            <a href="{% url 'edit_student' student.pk %}">Edit</a> |
+                            <a href="{% url 'delete_student' student.pk %}" style="color: red;">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            {% endif %}
+
+</body>
+</html>

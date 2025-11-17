@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Confirm Delete</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        .btn-delete {
+            background-color: #dc3545;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-cancel {
+            text-decoration: none;
+            margin-left: 15px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <p><a href="/">Back to Dashboard</a></p>
+    <h1>Are you sure?</h1>
+
+    <p>You are about to permanently delete the following student:</p>
+    
+    <h2>{{ student.first_name }} {{ student.last_name }} (ID: {{ student.student_id|default:"N/A" }})</h2>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn-delete">Confirm Delete</button>
+        <a href="/" class="btn-cancel">Cancel</a>
+    </form>
+
+</body>
+</html>

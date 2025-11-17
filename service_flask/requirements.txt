@@ -1,0 +1,4 @@
+# Service Flask Core
+flask
+pyjwt
+python-dotenv

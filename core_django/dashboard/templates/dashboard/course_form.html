@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        form { max-width: 500px; }
+    </style>
+</head>
+<body>
+    <p><a href="{% url 'course_list' %}">Back to Course List</a></p>
+    <h1>{{ title }}</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Save Course</button>
+    </form>
+</body>
+</html>

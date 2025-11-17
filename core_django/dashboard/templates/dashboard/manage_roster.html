@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Roster</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        .student-list { list-style-type: none; padding-left: 0; }
+        .student-list li { background: #f4f4f4; padding: 10px; margin-bottom: 5px; border-radius: 5px; }
+        .student-list label { display: block; }
+    </style>
+</head>
+<body>
+    <p><a href="{% url 'course_list' %}">Back to Course List</a></p>
+    
+    <h1>Manage Roster for: {{ course.name }}</h1>
+    <p><strong>Cost:</strong> ${{ course.cost }} (This cost will be added to the balance of any new students you add.)</p>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        <h3>Select Students to Enroll:</h3>
+        <ul class="student-list">
+            {{ form.students }}
+        </ul>
+        
+        <button type="submit">Update Roster</button>
+    </form>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your Courses</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        table { width:100%; border-collapse: collapse; }
+        th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+        thead { background-color: #f4f4f4; }
+    </style>
+</head>
+<body>
+    <p><a href="/">Back to Dashboard</a></p>
+    <h1>Manage Your Courses</h1>
+    <p><a href="{% url 'add_course' %}">Add New Course</a></p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Course Name</th>
+                <th>Course Code</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for course in courses %}
+            <tr>
+                <td>{{ course.name }}</td>
+                <td>{{ course.course_code|default:"N/A" }}</td>
+                <td>${{ course.cost }}</td>
+                <td>
+                    <a href="{% url 'manage_roster' course.pk %}">Manage Roster</a> |
+                    <a href="{% url 'edit_course' course.pk %}">Edit</a> |
+                    <a href="{% url 'delete_course' course.pk %}" style="color: red;">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">You have not created any courses yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

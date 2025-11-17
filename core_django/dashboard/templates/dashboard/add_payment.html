@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Payment</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        form { max-width: 500px; }
+    </style>
+</head>
+<body>
+    <p><a href="/">Back to Dashboard</a></p>
+    
+    <h1>Add Payment for: {{ student.first_name }} {{ student.last_name }}</h1>
+    <p>Current Balance: <strong>${{ student.current_balance }}</strong></p>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Log Payment</button>
+    </form>
+</body>
+</html>

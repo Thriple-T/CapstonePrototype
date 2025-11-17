@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add New Student</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        form { max-width: 500px; }
+        form div { margin-bottom: 1em; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
+        .errorlist { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <p><a href="/">Back to Dashboard</a></p>
+    <h1>Add a New Student</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        {{ form.non_field_errors }}
+
+        {{ form.as_p }}
+        
+        <button type="submit">Save Student</button>
+    </form>
+
+</body>
+</html>
