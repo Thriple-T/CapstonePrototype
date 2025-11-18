@@ -241,3 +241,21 @@ def dashboard_analytics(request):
     }
     
     return render(request, 'dashboard/analytics.html', context)
+
+@login_required
+def student_detail(request, pk):
+    """Shows all details for a specific student, including their payments and courses."""
+    
+    # Fetch the student object, ensuring they are owned by the current user
+    student = get_object_or_404(Student, pk=pk, user=request.user)
+    
+    # Fetch all payment records for this student
+    payments = Payment.objects.filter(student=student).order_by('-payment_date')
+    
+    context = {
+        'student': student,
+        'payments': payments,
+        # Courses are accessible via student.courses.all(), but explicitly fetching payments is necessary.
+    }
+    
+    return render(request, 'dashboard/student_detail.html', context)
