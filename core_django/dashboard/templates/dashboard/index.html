@@ -102,32 +102,78 @@
 
     <hr>
         <h2>Your Enrolled Students</h2>
-        {% if students %}
-            <table style="width:100%; border-collapse: collapse;">
-                <thead style="background-color: #f4f4f4;">
-                    <tr style="text-align: left;">
-                        <th style="padding: 8px;">Name</th>
-                        <th style="padding: 8px;">Student ID</th>
-                        <th style="padding: 8px;">Fees Owed</th>
-                        <th style="padding: 8px;">Status</th>
-                        <th style="padding: 8px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for student in students %}
-                    <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 8px;">
-                            <a href="{% url 'student_detail' student.pk %}" style="text-decoration: none; font-weight: bold; color: #007bff;">
-                                {{ student.first_name }} {{ student.last_name }}
-                            </a>
-                        </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            {% endif %}
+        <table style="width:100%; border-collapse: collapse; margin-top: 10px;">
+            <thead style="background-color: #f4f4f4;">
+                <tr style="text-align: left;">
+                    <th style="padding: 8px;">Name</th>
+                    <th style="padding: 8px;">Student ID</th>
+                    <th style="padding: 8px;">Courses</th>
+                    <th style="padding: 8px;">Fees Owed</th>
+                    <th style="padding: 8px;">Status</th>
+                    <th style="padding: 8px;">AI Risk Score</th>
+                    <th style="padding: 8px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px;">
+                        <a href="{% url 'student_detail' student.pk %}" style="font-weight: bold; text-decoration: none; color: #007bff;">
+                            {{ student.first_name }} {{ student.last_name }}
+                        </a>
+                    </td>
 
+                    <td style="padding: 8px;">{{ student.student_id|default:"-" }}</td>
+
+                    <td style="padding: 8px;">
+                        {% for course in student.courses.all %}
+                            {{ course.name }}<br>
+                        {% empty %}
+                            <span style="color: gray;">No courses</span>
+                        {% endfor %}
+                    </td>
+
+                    <td style="padding: 8px;">
+                        {% if student.current_balance > 0 %}
+                            <span style="color: #dc3545; font-weight: bold;">${{ student.current_balance }}</span>
+                        {% elif student.current_balance < 0 %}
+                            <span style="color: green;">Credit: ${{ student.absolute_balance }}</span>
+                        {% else %}
+                            $0.00
+                        {% endif %}
+                    </td>
+
+                    <td style="padding: 8px;">
+                        {% if student.status == 'ACT' %}
+                            <span style="color: green; font-weight: bold;">Active</span>
+                        {% else %}
+                            {{ student.get_status_display }}
+                        {% endif %}
+                    </td>
+
+                    <td style="padding: 8px;">
+                        {% if student.risk.label == 'Critical' %}
+                            <span style="color: red; font-weight: bold;">⚠️ {{ student.risk.label }}</span>
+                        {% else %}
+                            <span style="color: green;">{{ student.risk.label }}</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="padding: 8px;">
+                        <a href="{% url 'add_payment' student.pk %}" style="color: green;">Pay</a> | 
+                        <a href="{% url 'edit_student' student.pk %}">Edit</a> |
+                        <a href="{% url 'delete_student' student.pk %}" style="color: red;">Delete</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 20px;">
+                        You have not added any students yet. <a href="{% url 'add_student' %}">Add one now</a>.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     <hr style="margin: 40px 0;">
 
     <h2>Your Course List (<a href="{% url 'course_list' %}">Manage All Courses</a>)</h2>

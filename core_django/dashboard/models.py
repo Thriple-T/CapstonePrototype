@@ -8,8 +8,12 @@ class Course(models.Model):
     course_code = models.CharField(max_length=20, blank=True, null=True)
     cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     
-    def __str__(self):
-        return f"{self.name} ({self.user.username})"
+    schedule_days = models.CharField(max_length=50, blank=True, null=True, help_text="e.g., Mon/Wed")
+    start_time = models.TimeField(blank=True, null=True)
+    end_date = models.DateField(blank=True, null=True)
+    
+    # Automatically records the timestamp when click on "Save Course"
+    created_at = models.DateTimeField(auto_now_add=True)
 
 class Student(models.Model):
     class StudentStatus(models.TextChoices):
@@ -52,3 +56,38 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Payment of ${self.amount} for {self.student.first_name}"
+    
+class Attendance(models.Model):
+    class AttendanceStatus(models.TextChoices):
+        PRESENT = 'P', 'Present'
+        ABSENT = 'A', 'Absent'
+        LATE = 'L', 'Late'
+        EXCUSED = 'E', 'Excused'
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    date = models.DateField(default=timezone.now)
+    status = models.CharField(max_length=1, choices=AttendanceStatus.choices, default=AttendanceStatus.PRESENT)
+    
+    class Meta:
+        # Ensures a student can't be marked present twice for the same course on the same day
+        unique_together = ('course', 'student', 'date')
+
+    def __str__(self):
+        return f"{self.student} - {self.course} - {self.date}"
+    
+class Enrollment(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    
+    start_date = models.DateField(default=timezone.now)
+    end_date = models.DateField(blank=True, null=True)
+    
+    # Snapshot the schedule here. Why? 
+    # If the course schedule changes next year, the user still want to know 
+    # what the schedule was *when this student took it.
+    schedule_snapshot = models.CharField(max_length=100, blank=True, help_text="e.g. Wed/Thurs @ 5pm")
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.student} in {self.course} ({self.start_date})"

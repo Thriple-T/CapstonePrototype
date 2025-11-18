@@ -16,31 +16,59 @@
     <p><a href="{% url 'add_course' %}">Add New Course</a></p>
 
     <table>
-        <thead>
-            <tr>
-                <th>Course Name</th>
-                <th>Course Code</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for course in courses %}
-            <tr>
-                <td>{{ course.name }}</td>
-                <td>{{ course.course_code|default:"N/A" }}</td>
-                <td>${{ course.cost }}</td>
-                <td>
-                    <a href="{% url 'manage_roster' course.pk %}">Manage Roster</a> |
-                    <a href="{% url 'edit_course' course.pk %}">Edit</a> |
-                    <a href="{% url 'delete_course' course.pk %}" style="color: red;">Delete</a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="3">You have not created any courses yet.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
+            <thead>
+                <tr>
+                    <th>Course Name</th>
+                    <th>Course Code</th>
+                    <th>Schedule</th>
+                    <th>Ends On</th>
+                    <th>Created</th>
+                    <th>Cost</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for course in courses %}
+                <tr style="border-bottom: 1px solid #ddd;">
+                    <td><strong>{{ course.name }}</strong></td>
+                    <td>{{ course.course_code|default:"N/A" }}</td>
+                    <td>
+                        {% if course.schedule_days %}
+                            {{ course.schedule_days }} 
+                            {% if course.start_time %} @ {{ course.start_time|time:"g:i A" }}{% endif %}
+                        {% else %}
+                            <span style="color: #999;">Not set</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if course.end_date %}
+                            {{ course.end_date|date:"M j, Y" }}
+                        {% else %}
+                            <span style="color: #999;">Ongoing</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="font-size: 0.9em; color: gray;">
+                        {{ course.created_at|date:"M j, Y" }}
+                    </td>
+                    
+                    <td>${{ course.cost }}</td>
+                    
+                    <td>
+                        <a href="{% url 'manage_roster' course.pk %}">Manage Roster</a> |
+                        <a href="{% url 'edit_course' course.pk %}">Edit</a> |
+                        <a href="{% url 'delete_course' course.pk %}" style="color: red;">Delete</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 20px;">
+                        You have not created any courses yet. <a href="{% url 'add_course' %}">Add one now.</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
     </table>
 </body>
 </html>

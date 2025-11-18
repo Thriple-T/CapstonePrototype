@@ -1,5 +1,6 @@
 import requests  
-import jwt       
+import jwt
+from django.utils import timezone
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import UserCreationForm
@@ -9,7 +10,7 @@ from django.db.models import Sum
 
 # UPDATE IMPORTS TO INCLUDE Payment and PaymentForm
 from .forms import StudentForm, CourseForm, ManageRosterForm, PaymentForm
-from .models import Student, Course, Payment
+from .models import Student, Course, Payment, Enrollment, Attendance
 
 FLASK_API_URL = "http://127.0.0.1:5001/api/v1/get-data"
 FLASK_VALIDATE_URL = "http://127.0.0.1:5001/api/v1/validate-student"
@@ -25,40 +26,33 @@ def fetch_flask_data(request):
     """
     students = Student.objects.filter(user=request.user).order_by('last_name')
     courses = Course.objects.filter(user=request.user).order_by('name')
-    
+
+    # Calculate Risk (In-Memory)
+    # This adds the 'risk' attribute to each student object for the template
+    for student in students:
+        try:
+            # Logic: If balance > $500 or courses < 1, high risk
+            risk_label = "Low Risk"
+            risk_score = 10
+            
+            if student.current_balance > 500:
+                risk_label = "Critical"
+                risk_score = 90
+            elif student.courses.count() == 0:
+                risk_label = "Moderate Risk"
+                risk_score = 50
+                
+            student.risk = {'label': risk_label, 'risk_score': risk_score}
+        except Exception:
+            student.risk = {'label': 'Error', 'risk_score': 0}
+
+    # 3. Prepare Context
     context = {
         "flask_response": None,
         "error": None,
         "students": students,
         "courses": courses
     }
-
-    for student in students:
-        try:
-            # Prepare data for ML
-            ml_payload = {
-                'student_id': student.student_id,
-                'current_balance': str(student.current_balance),
-                'course_count': student.courses.count()
-            }
-            
-            # Generate Token
-            jwt_payload = {'user_id': request.user.id}
-            token = jwt.encode(jwt_payload, settings.SHARED_SECRET_KEY, algorithm="HS256")
-            headers = {'Authorization': f'Bearer {token}'}
-            
-            # Call Flask ML Endpoint
-            response = requests.post(FLASK_PREDICT_URL, json=ml_payload, headers=headers, timeout=2)
-            
-            if response.status_code == 200:
-                data = response.json()
-                # Attach 'risk' attribute to student object (in memory only)
-                student.risk = data['prediction']
-            else:
-                student.risk = {'label': 'Error', 'risk_score': 0}
-                
-        except Exception:
-            student.risk = {'label': 'Offline', 'risk_score': 0}
 
     return render(request, 'dashboard/index.html', context)
 
@@ -177,6 +171,7 @@ def delete_course(request, pk):
 @login_required
 def manage_roster(request, pk):
     course = get_object_or_404(Course, pk=pk, user=request.user)
+    
     if request.method == 'POST':
         form = ManageRosterForm(request.POST, user=request.user)
         if form.is_valid():
@@ -185,13 +180,38 @@ def manage_roster(request, pk):
             
             for student in selected_students:
                 if student not in current_students:
+                    # 1. Add to the "Live" Roster 
                     student.courses.add(course)
+                    
+                    # 2. Update Financials 
                     student.current_balance += course.cost
                     student.save()
+                    
+                    # 3. CREATE ENROLLMENT HISTORY
+                    # Create a string for the schedule snapshot
+                    sched_str = f"{course.schedule_days}"
+                    if course.start_time:
+                        sched_str += f" @ {course.start_time.strftime('%I:%M %p')}"
+                    
+                    Enrollment.objects.create(
+                        student=student,
+                        course=course,
+                        start_date=timezone.now(),
+                        schedule_snapshot=sched_str,
+                        is_active=True
+                    )
+            
             return redirect('course_list')
     else:
-        form = ManageRosterForm(user=request.user, initial={'students': course.student_set.all()})
-    return render(request, 'dashboard/manage_roster.html', {'form': form, 'course': course})
+        form = ManageRosterForm(
+            user=request.user,
+            initial={'students': course.student_set.all()}
+        )
+        
+    return render(request, 'dashboard/manage_roster.html', {
+        'form': form,
+        'course': course
+    })
 
 @login_required
 def add_payment(request, student_pk):
@@ -244,18 +264,16 @@ def dashboard_analytics(request):
 
 @login_required
 def student_detail(request, pk):
-    """Shows all details for a specific student, including their payments and courses."""
-    
-    # Fetch the student object, ensuring they are owned by the current user
     student = get_object_or_404(Student, pk=pk, user=request.user)
-    
-    # Fetch all payment records for this student
     payments = Payment.objects.filter(student=student).order_by('-payment_date')
+    
+    # Fetch Enrollment History
+    enrollment_history = Enrollment.objects.filter(student=student).order_by('-start_date')
     
     context = {
         'student': student,
         'payments': payments,
-        # Courses are accessible via student.courses.all(), but explicitly fetching payments is necessary.
+        'enrollment_history': enrollment_history, # <-- Pass this to template
     }
     
     return render(request, 'dashboard/student_detail.html', context)

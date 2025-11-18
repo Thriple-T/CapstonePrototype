@@ -18,8 +18,14 @@ class StudentForm(forms.ModelForm):
 class CourseForm(forms.ModelForm):
     class Meta:
         model = Course
-        fields = ['name', 'course_code', 'cost']
-
+        # Add 'end_date' to the fields list
+        fields = ['name', 'course_code', 'cost', 'schedule_days', 'start_time', 'end_date']
+        
+        widgets = {
+            'start_time': forms.TimeInput(attrs={'type': 'time'}),
+            # Add the HTML5 Date Picker for easy selection
+            'end_date': forms.DateInput(attrs={'type': 'date'}),
+        }
 class ManageRosterForm(forms.Form):
     students = forms.ModelMultipleChoiceField(
         queryset=Student.objects.none(),
