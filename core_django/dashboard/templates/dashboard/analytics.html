@@ -1,58 +1,60 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Financial Analytics Dashboard</title>
-    <style>
-        body { font-family: sans-serif; margin: 2em; background-color: #f8f9fa; }
-        .metric-card {
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 15px;
-            width: 300px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            display: inline-block;
-            vertical-align: top;
-        }
-        .metric-value { font-size: 2.5em; font-weight: bold; margin-top: 10px; }
-        .metric-label { font-size: 0.9em; color: #6c757d; text-transform: uppercase; }
-        .revenue { color: #28a745; }
-        .owed { color: #dc3545; }
-        .count { color: #007bff; }
-    </style>
-</head>
-<body>
-    <h1>Financial Summary</h1>
-    <p><a href="{% url 'fetch_data' %}">← Back to Student List</a></p>
+{% extends "dashboard/base.html" %}
 
-    <div class="metrics-container">
-        
+{% block content %}
+<style>
+    .metric-card {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        text-align: center;
+    }
+    .metric-value { font-size: 2.5em; font-weight: bold; margin-top: 10px; }
+    .metric-label { font-size: 0.9em; color: #6c757d; text-transform: uppercase; }
+    .revenue { color: #28a745; }
+    .count { color: #007bff; }
+</style>
+
+<h1 class="mb-4">Financial & Operational Summary</h1>
+
+<div class="row">
+    <div class="col-md-4">
         <div class="metric-card">
             <div class="metric-label">Total Revenue</div>
             <div class="metric-value revenue">${{ total_revenue|floatformat:2 }}</div>
         </div>
+    </div>
 
-        <div class="metric-card">
-            <div class="metric-label">Total Outstanding Fees</div>
-            <div class="metric-value owed">${{ total_owed|floatformat:2 }}</div>
-        </div>
-
+    <div class="col-md-4">
         <div class="metric-card">
             <div class="metric-label">Total Students</div>
             <div class="metric-value count">{{ total_students }}</div>
         </div>
+    </div>
 
+    <div class="col-md-4">
         <div class="metric-card">
             <div class="metric-label">Active Courses</div>
             <div class="metric-value count">{{ total_courses }}</div>
         </div>
     </div>
-    
-    <h2>Raw Data (For Prototype)</h2>
-    <p>Revenue is calculated from the sum of all payments recorded in the system.</p>
-    <p>Outstanding Fees is the sum of all student balances.</p>
 
-</body>
-</html>
+    <div class="col-md-4">
+        <div class="metric-card">
+            <div class="metric-label">Total Fees Owed</div>
+            <div class="metric-value count">${{ total_fees_owed|default:"0.00" }}</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="mt-4">
+    <h3>Report Notes</h3>
+    <ul>
+        <li>Revenue is calculated from the sum of all verified payments.</li>
+        <li>Course counts include all active classes owned by you.</li>
+    </ul>
+</div>
+{% endblock %}

@@ -3,29 +3,34 @@ from .models import Student, Course, Payment
 
 class StudentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        # Safely pop the 'user' argument that is passed from the view
+        kwargs.pop('user', None) 
         super(StudentForm, self).__init__(*args, **kwargs)
-        if user:
-            self.fields['courses'].queryset = Course.objects.filter(user=user)
+        # Note: The courses field and its related filtering logic has been removed.
 
     class Meta:
         model = Student
         fields = [
             'first_name', 'last_name', 'student_id', 
-            'email', 'status', 'courses'
+            'email', 'age', 'gender', 'city', 'country', 'status',
         ]
 
 class CourseForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        # Safely pop 'user' to prevent the TypeError
+        kwargs.pop('user', None) 
+        super(CourseForm, self).__init__(*args, **kwargs)
+
     class Meta:
         model = Course
-        # Add 'end_date' to the fields list
-        fields = ['name', 'course_code', 'cost', 'schedule_days', 'start_time', 'end_date']
+        fields = ['name', 'course_code', 'cost', 'schedule_days', 'start_time', 'end_time', 'end_date']
         
         widgets = {
             'start_time': forms.TimeInput(attrs={'type': 'time'}),
-            # Add the HTML5 Date Picker for easy selection
+            'end_time': forms.TimeInput(attrs={'type': 'time'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
         }
+        
 class ManageRosterForm(forms.Form):
     students = forms.ModelMultipleChoiceField(
         queryset=Student.objects.none(),
@@ -42,7 +47,7 @@ class ManageRosterForm(forms.Form):
 class PaymentForm(forms.ModelForm):
     class Meta:
         model = Payment
-        fields = ['amount', 'payment_date', 'notes']
+        fields = ['amount', 'date_of_payment', 'notes']
         widgets = {
-            'payment_date': forms.DateInput(attrs={'type': 'date'}),
+            'date_of_payment': forms.DateInput(attrs={'type': 'date'}),
         }

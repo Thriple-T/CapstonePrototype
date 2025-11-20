@@ -1,31 +1,36 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Add New Student</title>
-    <style>
-        body { font-family: sans-serif; margin: 2em; }
-        form { max-width: 500px; }
-        form div { margin-bottom: 1em; }
-        label { display: block; margin-bottom: 5px; }
-        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-        .errorlist { color: red; font-weight: bold; }
-    </style>
-</head>
-<body>
+{% extends "dashboard/base.html" %}
 
-    <p><a href="/">Back to Dashboard</a></p>
-    <h1>Add a New Student</h1>
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Add New Student</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <small class="form-text text-muted">{{ field.help_text }}</small>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
 
-    <form method="post">
-        {% csrf_token %}
-        
-        {{ form.non_field_errors }}
-
-        {{ form.as_p }}
-        
-        <button type="submit">Save Student</button>
-    </form>
-
-</body>
-</html>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">Save Student</button>
+                        <a href="{% url 'fetch_data' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+                </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

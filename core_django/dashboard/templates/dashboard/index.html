@@ -1,210 +1,125 @@
-{% load humanize %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SayarDesk Prototype</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 2em;
-            padding: 0;
-            background-color: #f9f9f9;
-            color: #333;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2em;
-            background-color: #ffffff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 1em;
-            margin-bottom: 1em;
-        }
-        .error-box {
-            border: 2px solid #dc3545;
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 1em;
-            border-radius: 5px;
-            margin-top: 1em;
-        }
-        pre {
-            background-color: #eee;
-            padding: 1em;
-            border-radius: 5px;
-            white-space: pre-wrap; /* Allows text to wrap */
-            word-wrap: break-word;
-        }
-    </style>
-</head>
-<body>
+{% extends "dashboard/base.html" %}
 
-    <div class="container">
-        
-        <div class="header">
-            <span>Logged in as: <strong>{{ request.user.username }}</strong></span>
-            
-            <a href="{% url 'admin:logout' %}">Logout</a>
-        </div>
-
-        <h1>SayarDesk Prototype</h1>
-        
-        <p>A secure server-to-server API call to Django & Flask's microservice.</p>
-        <p>More features will be done soon, this is as far as I can do for now</p>
-
-        <p>
-        You are logged in as: <strong>{{ request.user.username }}</strong>
-        <a href="{% url 'admin:logout' %}">(Logout)</a>
-
-        </p>
-
-        <hr>
-
-        <h2>Data from Flask:</h2>
-
-        {% if error %}
-            <div class="error-box">
-                <strong>Error:</strong> {{ error }}
-            </div>
-        
-        {% elif flask_response %}
-            <pre>{{ flask_response | stringformat:"s" }}</pre>
-            
-        {% else %}
-            <p>No response received from Flask.</p>
-        
-        {% endif %}
-
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Your Dashboard</h1>
+    <div>
+        <a href="{% url 'add_student' %}" class="btn btn-primary">+ Add Student</a>
+        <a href="{% url 'add_course' %}" class="btn btn-secondary">+ Add Course</a>
     </div>
+</div>
 
-    <h1>SayarDesk Dashboard</h1>
+{% if error %}
+    <div class="alert alert-danger" role="alert">
+        <strong>System Alert:</strong> {{ error }}
+    </div>
+{% endif %}
 
-    <p style="margin-bottom: 20px;">
-        <a href="{% url 'dashboard_analytics' %}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
-            View Financial Summary 📊
-        </a>
-    </p>
-    {% if error %}
-        <div style="color: red;">Error connecting to Flask: {{ error }}</div>
-    {% endif %}
+<div class="card mb-5">
+    <div class="card-header">Enrolled Students</div>
+    <div class="card-body">
+        {% if students %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Student ID</th>
+                        <th>Courses</th>
+                        <th>Fees Owed</th>
+                        <th>Status</th>
+                        <th>Dropout Risk</th>
+                        <th>Pred. Grade</th>
+                        <th>Pred. Income</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'student_detail' student.pk %}" class="fw-bold text-decoration-none">
+                                {{ student.first_name }} {{ student.last_name }}
+                            </a>
+                        </td>
+                        <td>{{ student.student_id|default:"-" }}</td>
+                        <td>
+                            {% for course in student.courses.all %}
+                                <span class="badge bg-info text-dark">{{ course.course_code }}</span><br>
+                            {% empty %}
+                                <span class="text-muted">None</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if student.current_balance > 0 %}
+                                <span class="text-danger fw-bold">${{ student.current_balance }}</span>
+                            {% else %}
+                                <span class="text-success">Paid</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ student.get_status_display }}</td>
+                        
+                        <td>
+                            <span style="color: {{ student.dropout_risk.color }}; font-weight: bold;">
+                                {{ student.dropout_risk.label }}
+                            </span>
+                        </td>
+                        <td>{{ student.predicted_grade }}</td>
+                        <td>${{ student.predicted_income|floatformat:0 }}</td>
 
-<p><a href="{% url 'add_student' %}">Add a New Student</a></p>
-    <p><a href="{% url 'course_list' %}">Manage Your Courses</a></p>
+                        <td>
+                            <a href="{% url 'add_payment' student.pk %}" class="btn btn-sm btn-success">Pay</a>
+                            <a href="{% url 'edit_student' student.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a href="{% url 'student_attendance_history' student.pk %}" class="btn btn-sm btn-info">History</a>
+                            <a href="{% url 'student_detail' student.pk %}" class="btn btn-sm btn-outline-info">Detail</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="text-center p-4">No students found.</p>
+        {% endif %}
+    </div>
+</div>
 
-    <hr>
-        <h2>Your Enrolled Students</h2>
-        <table style="width:100%; border-collapse: collapse; margin-top: 10px;">
-            <thead style="background-color: #f4f4f4;">
-                <tr style="text-align: left;">
-                    <th style="padding: 8px;">Name</th>
-                    <th style="padding: 8px;">Student ID</th>
-                    <th style="padding: 8px;">Courses</th>
-                    <th style="padding: 8px;">Fees Owed</th>
-                    <th style="padding: 8px;">Status</th>
-                    <th style="padding: 8px;">AI Risk Score</th>
-                    <th style="padding: 8px;">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for student in students %}
-                <tr style="border-bottom: 1px solid #ddd;">
-                    <td style="padding: 8px;">
-                        <a href="{% url 'student_detail' student.pk %}" style="font-weight: bold; text-decoration: none; color: #007bff;">
-                            {{ student.first_name }} {{ student.last_name }}
-                        </a>
-                    </td>
-
-                    <td style="padding: 8px;">{{ student.student_id|default:"-" }}</td>
-
-                    <td style="padding: 8px;">
-                        {% for course in student.courses.all %}
-                            {{ course.name }}<br>
-                        {% empty %}
-                            <span style="color: gray;">No courses</span>
-                        {% endfor %}
-                    </td>
-
-                    <td style="padding: 8px;">
-                        {% if student.current_balance > 0 %}
-                            <span style="color: #dc3545; font-weight: bold;">${{ student.current_balance }}</span>
-                        {% elif student.current_balance < 0 %}
-                            <span style="color: green;">Credit: ${{ student.absolute_balance }}</span>
-                        {% else %}
-                            $0.00
-                        {% endif %}
-                    </td>
-
-                    <td style="padding: 8px;">
-                        {% if student.status == 'ACT' %}
-                            <span style="color: green; font-weight: bold;">Active</span>
-                        {% else %}
-                            {{ student.get_status_display }}
-                        {% endif %}
-                    </td>
-
-                    <td style="padding: 8px;">
-                        {% if student.risk.label == 'Critical' %}
-                            <span style="color: red; font-weight: bold;">⚠️ {{ student.risk.label }}</span>
-                        {% else %}
-                            <span style="color: green;">{{ student.risk.label }}</span>
-                        {% endif %}
-                    </td>
-
-                    <td style="padding: 8px;">
-                        <a href="{% url 'add_payment' student.pk %}" style="color: green;">Pay</a> | 
-                        <a href="{% url 'edit_student' student.pk %}">Edit</a> |
-                        <a href="{% url 'delete_student' student.pk %}" style="color: red;">Delete</a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" style="text-align: center; padding: 20px;">
-                        You have not added any students yet. <a href="{% url 'add_student' %}">Add one now</a>.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    <hr style="margin: 40px 0;">
-
-    <h2>Your Course List (<a href="{% url 'course_list' %}">Manage All Courses</a>)</h2>
-
-    {% if courses %}
-        <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
-            <thead style="background-color: #f4f4f4;">
-                <tr style="text-align: left;">
-                    <th style="padding: 10px;">Course Name</th>
-                    <th style="padding: 10px;">Code</th>
-                    <th style="padding: 10px;">Cost</th>
-                    <th style="padding: 10px;">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for course in courses %}
-                <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 10px;"><strong>{{ course.name }}</strong></td>
-                    <td style="padding: 10px;">{{ course.course_code }}</td>
-                    <td style="padding: 10px;">${{ course.cost|floatformat:2 }}</td>
-                    <td style="padding: 10px;">
-                        <a href="{% url 'manage_roster' course.pk %}" style="color: blue;">Roster ({{ course.student_set.count }})</a> |
-                        <a href="{% url 'edit_course' course.pk %}">Edit</a> 
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>You have not created any courses yet. <a href="{% url 'add_course' %}">Add your first course now.</a></p>
-    {% endif %}
-
-</body>
-</html>
+<div class="card">
+    <div class="card-header">Active Courses</div>
+    <div class="card-body">
+        {% if courses %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Course Name</th>
+                        <th>Schedule</th>
+                        <th>Ends On</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for course in courses %}
+                    <tr>
+                        <td>{{ course.name }}</td>
+                        <td>
+                            {% if course.schedule_days %}
+                                {{ course.schedule_days }} 
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ course.end_date|default:"Ongoing" }}</td>
+                        <td>
+                            <a href="{% url 'manage_roster' course.pk %}">Roster</a> |
+                            <a href="{% url 'take_attendance' course.pk %}">Attendance</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-center">No courses created yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

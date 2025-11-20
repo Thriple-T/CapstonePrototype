@@ -1,7 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-
+from django.db.models import Sum
+                
 class Course(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
@@ -10,6 +11,8 @@ class Course(models.Model):
     
     schedule_days = models.CharField(max_length=50, blank=True, null=True, help_text="e.g., Mon/Wed")
     start_time = models.TimeField(blank=True, null=True)
+    end_time = models.TimeField(blank=True, null=True)
+    
     end_date = models.DateField(blank=True, null=True)
     
     # Automatically records the timestamp when click on "Save Course"
@@ -21,12 +24,28 @@ class Student(models.Model):
         LEAVE = 'LVE', 'On Leave'
         DROPPED = 'DRP', 'Dropped Out'
 
+    class GenderChoices(models.TextChoices):
+        MALE = 'M', 'Male'
+        FEMALE = 'F', 'Female'
+        OTHER = 'O', 'Other'
+        PREFER_NOT_TO_SAY = 'P', 'Prefer not to say'
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     student_id = models.CharField(max_length=50, unique=True, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
-    
+    age = models.IntegerField(blank=True, null=True)
+    gender = models.CharField(
+        max_length=1,
+        choices=GenderChoices.choices,
+        default=GenderChoices.PREFER_NOT_TO_SAY,
+        blank=True,
+        null=True
+    )
+    city = models.CharField(max_length=100, blank=True, null=True) 
+    country = models.CharField(max_length=100, blank=True, null=True)
     status = models.CharField(
         max_length=3,
         choices=StudentStatus.choices,
@@ -34,15 +53,20 @@ class Student(models.Model):
     )
 
     current_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    courses = models.ManyToManyField(Course, blank=True)
+    courses = models.ManyToManyField(Course, through='Enrollment', related_name='students', blank=True)
     date_added = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('student_id', 'first_name', 'last_name') 
 
     @property
-    def absolute_balance(self):
-        return abs(self.current_balance)
+    def current_balance(self):
+        # Calculate total cost of courses the student is enrolled in through Enrollment
+        total_course_cost = self.enrollment_set.aggregate(total=Sum('course__cost'))['total'] or 0
+        # Calculate total payments received from the student
+        total_payments = self.payment_set.aggregate(total=Sum('amount'))['total'] or 0
+        
+        return total_course_cost - total_payments
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} (Owner: {self.user.username})"
@@ -51,9 +75,10 @@ class Payment(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_date = models.DateField(default=timezone.now)
+    date_of_payment = models.DateField(default=timezone.now)
+    reference_id = models.CharField(max_length=100, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
-
+    date_recorded = models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return f"Payment of ${self.amount} for {self.student.first_name}"
     
@@ -83,9 +108,6 @@ class Enrollment(models.Model):
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(blank=True, null=True)
     
-    # Snapshot the schedule here. Why? 
-    # If the course schedule changes next year, the user still want to know 
-    # what the schedule was *when this student took it.
     schedule_snapshot = models.CharField(max_length=100, blank=True, help_text="e.g. Wed/Thurs @ 5pm")
     is_active = models.BooleanField(default=True)
 

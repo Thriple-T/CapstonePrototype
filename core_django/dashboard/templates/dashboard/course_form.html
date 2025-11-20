@@ -1,21 +1,25 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ title }}</title>
-    <style>
-        body { font-family: sans-serif; margin: 2em; }
-        form { max-width: 500px; }
-    </style>
-</head>
-<body>
-    <p><a href="{% url 'course_list' %}">Back to Course List</a></p>
-    <h1>{{ title }}</h1>
+{% extends "dashboard/base.html" %}
 
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Save Course</button>
-    </form>
-</body>
-</html>
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">Manage Course</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {{ form.as_p }}
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Save Course</button>
+                        <a href="{% url 'course_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

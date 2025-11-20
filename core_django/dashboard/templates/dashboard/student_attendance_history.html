@@ -1,0 +1,77 @@
+{% extends "dashboard/base.html" %}
+{% load dashboard_filters %}  {% block content %}
+<div class="container mt-4">
+    <a href="{% url 'fetch_data' %}" class="btn btn-secondary btn-sm mb-3">
+        &larr; Back to Dashboard
+    </a>
+    
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>Attendance History: {{ student.first_name }} {{ student.last_name }}</h2>
+    </div>
+    <p class="text-muted">ID: {{ student.student_id }}</p>
+
+    <hr>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Summary Statistics</h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                {% for code, label in status_labels.items %}
+                <div class="col-md-3 col-sm-6 mb-2">
+                    <div class="p-2 border rounded">
+                        <h4 class="mb-0">{{ summary_counts|get_item:code|default:0 }}</h4> 
+                        <small class="text-muted">{{ label }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    {# --- DETAILED ATTENDANCE HISTORY TABLE --- #}
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Detailed Records</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Course</th>
+                    <th>Status</th>
+                    <th>Recorded By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in attendance_records %}
+                <tr>
+                    <td>{{ record.date|date:"F j, Y" }}</td>
+                    <td>{{ record.course.name }} ({{ record.course.course_code }})</td>
+                    <td>
+                        <span class="badge 
+                            {% if record.status == 'P' %}bg-success
+                            {% elif record.status == 'A' %}bg-danger
+                            {% elif record.status == 'L' %}bg-warning text-dark
+                            {% elif record.status == 'E' %}bg-info
+                            {% else %}bg-secondary{% endif %}">
+                            {{ status_labels|get_item:record.status }}
+                        </span>
+                    </td>
+                    <td>{{ record.course.user.username }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center p-4">
+                        No attendance records found for this student.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+</div>
+{% endblock content %}
