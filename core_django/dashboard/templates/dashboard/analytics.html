@@ -1,60 +1,165 @@
 {% extends "dashboard/base.html" %}
 
 {% block content %}
-<style>
-    .metric-card {
-        background-color: white;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        text-align: center;
-    }
-    .metric-value { font-size: 2.5em; font-weight: bold; margin-top: 10px; }
-    .metric-label { font-size: 0.9em; color: #6c757d; text-transform: uppercase; }
-    .revenue { color: #28a745; }
-    .count { color: #007bff; }
-</style>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-gray-800">Analytics Command Center</h1>
+    <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-printer"></i> Print Report
+    </button>
+</div>
 
-<h1 class="mb-4">Financial & Operational Summary</h1>
+<h5 class="text-primary mb-3 border-bottom pb-2"><i class="bi bi-cash-coin"></i> Financial Health</h5>
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Revenue</div>
+                <div class="h5 mb-0 font-weight-bold text-gray-800">${{ total_revenue|floatformat:0 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Outstanding Fees</div>
+                <div class="h5 mb-0 font-weight-bold text-gray-800">${{ total_fees_owed|floatformat:0 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Predicted (Next Month)</div>
+                <div class="h5 mb-0 font-weight-bold text-gray-800">${{ predicted_revenue|floatformat:0 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-left-danger shadow h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Late Payments</div>
+                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_late_payments }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Revenue Trend & AI Forecast</h6></div>
+            <div class="card-body"><div style="height: 300px;"><canvas id="revenueChart"></canvas></div></div>
+        </div>
+    </div>
+</div>
 
+<h5 class="text-info mb-3 border-bottom pb-2"><i class="bi bi-mortarboard-fill"></i> Academic Performance</h5>
+<div class="row mb-5">
+    <div class="col-md-4">
+        <div class="card shadow h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-4">Average Attendance Rate</h6>
+                <div class="display-4 font-weight-bold 
+                    {% if avg_attendance_rate >= 80 %}text-success{% elif avg_attendance_rate >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                    {{ avg_attendance_rate|floatformat:1 }}%
+                </div>
+                <p class="small text-muted mt-2">Across all active courses</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card shadow h-100">
+            <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-info">Grade Distribution (Active Courses)</h6></div>
+            <div class="card-body"><div style="height: 250px;"><canvas id="gradesChart"></canvas></div></div>
+        </div>
+    </div>
+</div>
+
+<h5 class="text-secondary mb-3 border-bottom pb-2"><i class="bi bi-people-fill"></i> Operations</h5>
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Students</div>
+                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_students }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-left-danger shadow h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Churn Rate</div>
+                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ churn_rate|floatformat:1 }}%</div>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="row">
-    <div class="col-md-4">
-        <div class="metric-card">
-            <div class="metric-label">Total Revenue</div>
-            <div class="metric-value revenue">${{ total_revenue|floatformat:2 }}</div>
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-secondary">Student Status</h6></div>
+            <div class="card-body"><div style="height: 250px;"><canvas id="statusChart"></canvas></div></div>
         </div>
     </div>
-
-    <div class="col-md-4">
-        <div class="metric-card">
-            <div class="metric-label">Total Students</div>
-            <div class="metric-value count">{{ total_students }}</div>
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-secondary">Gender Distribution</h6></div>
+            <div class="card-body"><div style="height: 250px;"><canvas id="genderChart"></canvas></div></div>
         </div>
     </div>
-
-    <div class="col-md-4">
-        <div class="metric-card">
-            <div class="metric-label">Active Courses</div>
-            <div class="metric-value count">{{ total_courses }}</div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="metric-card">
-            <div class="metric-label">Total Fees Owed</div>
-            <div class="metric-value count">${{ total_fees_owed|default:"0.00" }}</div>
-        </div>
-    </div>
-
 </div>
 
-<div class="mt-4">
-    <h3>Report Notes</h3>
-    <ul>
-        <li>Revenue is calculated from the sum of all verified payments.</li>
-        <li>Course counts include all active classes owned by you.</li>
-    </ul>
-</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // 1. Revenue Chart (Line)
+    new Chart(document.getElementById('revenueChart'), {
+        type: 'line',
+        data: {
+            labels: {{ revenue_labels|safe }},
+            datasets: [{
+                label: 'Monthly Revenue',
+                data: {{ revenue_data|safe }},
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                pointBackgroundColor: {{ revenue_data|safe }}.map((_, i, arr) => i === arr.length - 1 ? '#6f42c1' : '#4e73df'),
+                pointRadius: {{ revenue_data|safe }}.map((_, i, arr) => i === arr.length - 1 ? 6 : 4),
+                fill: true, tension: 0.3
+            }]
+        },
+        options: { maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+    });
+
+    // 2. Grades Chart (Bar)
+    new Chart(document.getElementById('gradesChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ grade_labels|safe }},
+            datasets: [{
+                label: 'Number of Students',
+                data: {{ grade_counts|safe }},
+                backgroundColor: ['#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'],
+            }]
+        },
+        options: { maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+
+    // 3. Status Chart (Doughnut)
+    new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: {
+            labels: {{ status_labels|safe }},
+            datasets: [{ data: {{ status_counts|safe }}, backgroundColor: ['#4e73df', '#1cc88a', '#e74a3b'] }]
+        },
+        options: { maintainAspectRatio: false }
+    });
+
+    // 4. Gender Chart (Pie)
+    new Chart(document.getElementById('genderChart'), {
+        type: 'pie',
+        data: {
+            labels: {{ gender_labels|safe }},
+            datasets: [{ data: {{ gender_counts|safe }}, backgroundColor: ['#36b9cc', '#f6c23e', '#858796'] }]
+        },
+        options: { maintainAspectRatio: false }
+    });
+</script>
 {% endblock %}

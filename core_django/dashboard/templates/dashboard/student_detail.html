@@ -84,7 +84,145 @@
             <td>
                 <a href="{% url 'student_attendance_history' student.pk %}" class="btn btn-sm btn-info">History</a>
             </td>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Grade History</h6>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Course</th>
+                        <th>Assignment</th>
+                        <th>Score</th>
+                        <th>%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in student.graderecord_set.all %}
+                    <tr>
+                        <td>{{ record.date }}</td>
+                        <td>{{ record.course.name }}</td>
+                        <td>{{ record.description }}</td>
+                        <td>{{ record.score_obtained }} / {{ record.max_score }}</td>
+                        <td>
+                            {% if record.get_percentage >= 60 %}
+                                <span class="badge bg-success">{{ record.get_percentage|floatformat:1 }}%</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ record.get_percentage|floatformat:1 }}%</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">No grades recorded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-</div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Course Performance</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Course</th>
+                            <th>Current Average</th>
+                            <th style="width: 200px;">Quick Update</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for enrollment in student.enrollment_set.all %}
+                        <tr>
+                            <td class="align-middle">
+                                <span class="fw-bold">{{ enrollment.course.name }}</span>
+                            </td>
+                            <td class="align-middle">
+                                {% if enrollment.current_average < 60 %}
+                                    <span class="badge bg-danger fs-6">{{ enrollment.current_average|floatformat:1 }}%</span>
+                                {% else %}
+                                    <span class="badge bg-success fs-6">{{ enrollment.current_average|floatformat:1 }}%</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="{% url 'update_grade' enrollment.id %}" method="post" class="d-flex gap-2">
+                                    {% csrf_token %}
+                                    
+                                    <input type="number" 
+                                        name="grade" 
+                                        value="{{ enrollment.current_average }}" 
+                                        step="0.1" min="0" max="100" 
+                                        class="form-control form-control-sm" 
+                                        placeholder="0.0">
+                                    
+                                    <button type="submit" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-check-lg"></i> Save
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-3">
+                                This student is not enrolled in any courses yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-active border-top-2">
+                            <td><strong>Overall Average</strong></td>
+                            <td colspan="2" class="fs-5">
+                                <strong>{{ student.current_average_grade|floatformat:2 }}%</strong>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow border-left-info">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-info">ML Student Performance Prediction</h6>
+                    <span class="badge bg-info text-white">Live Model</span>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-3 text-center">
+                            <h1 class="display-4 font-weight-bold text-gray-800">
+                                {{ predicted_grade|default:"--" }}%
+                            </h1>
+                            <p class="text-muted mb-0">Predicted Final Grade</p>
+                        </div>
+                        <div class="col-md-9">
+                            <h5 class="font-weight-bold">
+                                {% if predicted_grade >= 80 %}
+                                    <span class="text-success">{{ ml_message }}</span>
+                                {% elif predicted_grade >= 60 %}
+                                    <span class="text-primary">{{ ml_message }}</span>
+                                {% else %}
+                                    <span class="text-danger">{{ ml_message }}</span>
+                                {% endif %}
+                            </h5>
+                            <hr>
+                            <div class="small text-muted mb-2">Factors influencing this score:</div>
+                            <div class="d-flex justify-content-between">
+                                <span><i class="bi bi-clock"></i> Study: <strong>{{ student.study_hours }} hrs/wk</strong></span>
+                                <span><i class="bi bi-calendar-check"></i> Attendance: <strong>{{ attendance_rate_percent }}%</strong></span>
+                                <span><i class="bi bi-graph-up"></i> Baseline: <strong>{{ student.previous_grade }}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}

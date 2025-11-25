@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Sum, Avg
                 
 class Course(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -12,7 +12,7 @@ class Course(models.Model):
     schedule_days = models.CharField(max_length=50, blank=True, null=True, help_text="e.g., Mon/Wed")
     start_time = models.TimeField(blank=True, null=True)
     end_time = models.TimeField(blank=True, null=True)
-    
+    start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(blank=True, null=True)
     
     # Automatically records the timestamp when click on "Save Course"
@@ -55,6 +55,9 @@ class Student(models.Model):
     current_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     courses = models.ManyToManyField(Course, through='Enrollment', related_name='students', blank=True)
     date_added = models.DateTimeField(auto_now_add=True)
+    previous_grade = models.FloatField(default=0.0, help_text="Entrance Exam/Baseline Score (0-100)")
+    study_hours = models.PositiveIntegerField(default=0, help_text="Average self-reported study hours per week.")
+    payment_delays = models.PositiveIntegerField(default=0, help_text="Total number of late payments recorded.")
 
     class Meta:
         unique_together = ('student_id', 'first_name', 'last_name') 
@@ -67,7 +70,13 @@ class Student(models.Model):
         total_payments = self.payment_set.aggregate(total=Sum('amount'))['total'] or 0
         
         return total_course_cost - total_payments
-
+    
+    @property
+    def current_average_grade(self):
+        """Calculates the average grade across all currently enrolled courses."""
+        avg = self.enrollment_set.aggregate(average=Avg('current_average'))['average']
+        return avg or 0.0
+    
     def __str__(self):
         return f"{self.first_name} {self.last_name} (Owner: {self.user.username})"
 
@@ -104,12 +113,43 @@ class Attendance(models.Model):
 class Enrollment(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    
     start_date = models.DateField(default=timezone.now)
-    end_date = models.DateField(blank=True, null=True)
+    current_average = models.FloatField(default=0.0, help_text="Calculated average (0-100)")
+
+    def update_average(self):
+        """Recalculates the average based on ALL GradeRecords for this course."""
+        records = self.student.graderecord_set.filter(course=self.course)
+        
+        if not records.exists():
+            self.current_average = 0.0
+        else:
+            total_percentage = sum([r.get_percentage() for r in records])
+            self.current_average = total_percentage / records.count()
     
-    schedule_snapshot = models.CharField(max_length=100, blank=True, help_text="e.g. Wed/Thurs @ 5pm")
-    is_active = models.BooleanField(default=True)
+        self.save()
+
+    class Meta:
+        unique_together = ('student', 'course')
+
+class GradeRecord(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    
+    description = models.CharField(max_length=100, help_text="e.g. Quiz 1, Midterm, Homework")
+    date = models.DateField(default=timezone.now)
+    
+    score_obtained = models.FloatField(default=0.0, help_text="Points the student earned")
+    max_score = models.FloatField(default=100.0, help_text="Total points possible for this assignment")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date'] # Most recent first
+
+    def get_percentage(self):
+        if self.max_score > 0:
+            return (self.score_obtained / self.max_score) * 100
+        return 0.0
 
     def __str__(self):
-        return f"{self.student} in {self.course} ({self.start_date})"
+        return f"{self.student} - {self.course}: {self.score_obtained}/{self.max_score}"

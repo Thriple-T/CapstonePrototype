@@ -1,19 +1,25 @@
 import requests  
 import jwt
+import os
+import joblib
+import pandas as pd
+import json
 from django.utils import timezone
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Sum, Avg, Count, F, Q
 from django.db import transaction # ADDED: Import transaction for atomic updates
 from django.contrib import messages
 from decimal import Decimal
+from django.db.models.functions import TruncMonth
+from django.conf import settings
 
 # Imports from local modules
 from .forms import StudentForm, CourseForm, ManageRosterForm, PaymentForm
-from .models import Student, Course, Payment, Enrollment, Attendance
+from .models import Student, Course, Payment, Enrollment, Attendance, GradeRecord
 
 FLASK_API_URL = "http://127.0.0.1:5001/api/v1/get-data"
 FLASK_VALIDATE_URL = "http://127.0.0.1:5001/api/v1/validate-student"
@@ -49,12 +55,48 @@ def fetch_flask_data(request):
         except Exception:
             student.risk = {'label': 'Error', 'risk_score': 0}
 
-    # 3. Prepare Context
+    # Prepare Context
     context = {
         "flask_response": None,
         "error": None,
         "students": students,
         "courses": courses
+    }
+
+    return render(request, 'dashboard/index.html', context)
+
+@login_required
+def dashboard_home(request):
+    """
+    The Main Landing Page.
+    """
+    print("--------------------------------------------------")
+    print(f"LOADING DASHBOARD HOME for user: {request.user}")
+    user = request.user
+
+    student_list = Student.objects.filter(user=user).order_by('-id')[:10]
+    total_students = Student.objects.filter(user=user).count()
+    active_students = Student.objects.filter(
+        user=user, 
+        enrollment__isnull=False
+    ).distinct().count()
+
+    revenue_agg = Payment.objects.filter(student__user=user).aggregate(total=Sum('amount'))
+    total_revenue = revenue_agg.get('total') or Decimal('0.00')
+    
+    charges_agg = Enrollment.objects.filter(student__user=user).aggregate(total=Sum('course__cost'))
+    total_charges = charges_agg.get('total') or Decimal('0.00')
+    total_owed = total_charges - total_revenue
+
+    courses = Course.objects.filter(user=user).order_by('-created_at')
+
+    context = {
+        'total_students': total_students,
+        'active_students': active_students, # Now reflects the Roster count
+        'student_list': student_list,
+        'total_revenue': total_revenue,
+        'total_owed': total_owed,
+        'courses': courses,
     }
 
     return render(request, 'dashboard/index.html', context)
@@ -132,6 +174,22 @@ def student_list(request):
     return render(request, 'dashboard/student_list.html', {'students': students})
 
 @login_required
+def course_detail(request, pk):
+    """
+    Displays the detailed information for a single course.
+    """
+    course = get_object_or_404(Course, pk=pk, user=request.user)
+    enrolled_students = Student.objects.filter(
+        enrollment__course=course
+    ).order_by('last_name')
+
+    context = {
+        'course': course,
+        'enrolled_students': enrolled_students,
+    }
+    return render(request, 'dashboard/course_detail.html', context)
+
+@login_required
 def course_list(request):
     courses = Course.objects.filter(user=request.user).order_by('name')
     return render(request, 'dashboard/course_list.html', {'courses': courses})
@@ -180,51 +238,47 @@ def delete_course(request, pk):
 
 @login_required
 def manage_roster(request, pk):
-    """
-    Manages the roster for a specific course by explicitly updating Enrollment records.
-    - On GET, displays the current students in the course.
-    - On POST, updates the enrollment list: removes unselected students and adds new ones.
-    """
-    # Get the course
     course = get_object_or_404(Course, pk=pk, user=request.user)
-    # Get the currently enrolled student IDs
-    current_enrolled_students = Student.objects.filter(enrollment__course=course)
-
-    if request.method == 'POST':
-        form = ManageRosterForm(request.POST, user=request.user) 
-        if form.is_valid():
-            selected_students = form.cleaned_data.get('students')
-            
-            selected_set = set(selected_students)
-            current_set = set(current_enrolled_students)
-            
-            students_to_add = selected_set - current_set
-            students_to_remove = current_set - selected_set
-            
-            # FIX 2: Use an atomic transaction to update Enrollment records
-            with transaction.atomic():
-                # 1. Remove students: Delete their Enrollment record(s) for this course
-                Enrollment.objects.filter(
-                    course=course, 
-                    student__in=students_to_remove
-                ).delete()
-                
-                # 2. Add students: Create a new Enrollment record for each
-                enrollments_to_create = [
-                    Enrollment(course=course, student=student) 
-                    for student in students_to_add
-                ]
-                Enrollment.objects.bulk_create(enrollments_to_create)
-
-            messages.success(request, f'Roster for {course.name} updated successfully.')
-            return redirect('course_list')
-        
-    else: # GET request
-        # Populate the form with students currently enrolled (so they appear checked)
-        form = ManageRosterForm(initial={'students': current_enrolled_students}, user=request.user)
     
-    context = {'course': course, 'form': form}
-    return render(request, 'dashboard/manage_roster.html', context)
+    if request.method == 'POST':
+
+        student_ids_to_add = request.POST.getlist('students_to_add')
+        
+        if student_ids_to_add:
+            for student_id in student_ids_to_add:
+                student = get_object_or_404(Student, pk=student_id, user=request.user)
+                
+                # This checks if enrollment exists. If yes, it does nothing. If no, it creates it.
+                obj, created = Enrollment.objects.get_or_create(
+                    course=course,
+                    student=student,
+                    defaults={'start_date': timezone.now()}
+                )
+            
+            messages.success(request, f"Successfully enrolled {len(student_ids_to_add)} students.")
+            return redirect('manage_roster', pk=course.pk)
+
+        remove_student_id = request.POST.get('remove_student_id')
+        
+        if remove_student_id:
+            student = get_object_or_404(Student, pk=remove_student_id, user=request.user)
+            Enrollment.objects.filter(course=course, student=student).delete()
+            
+            messages.warning(request, f"Removed {student.first_name} from the roster.")
+            return redirect('manage_roster', pk=course.pk)
+        
+        messages.info(request, "No students were selected for action.")
+        return redirect('manage_roster', pk=course.pk)
+    
+    enrolled_students = Student.objects.filter(enrollment__course=course).order_by('last_name')
+        
+    available_students = Student.objects.filter(user=request.user).exclude(id__in=enrolled_students.values_list('id', flat=True)).order_by('first_name')
+
+    return render(request, 'dashboard/manage_roster.html', {
+        'course': course,
+        'enrolled_students': enrolled_students,
+        'available_students': available_students
+    })
 
 @login_required
 def add_payment(request, student_pk):
@@ -245,58 +299,149 @@ def add_payment(request, student_pk):
 
     return render(request, 'dashboard/add_payment.html', {'form': form, 'student': student})
 
+def predict_next_revenue(payment_data):
+    y = payment_data
+    x = list(range(1, len(y) + 1))
+    n = len(y)
+    if n < 2: return sum(y) / n if n > 0 else 0.0
+    sum_x = sum(x)
+    sum_y = sum(y)
+    sum_xy = sum(xi * yi for xi, yi in zip(x, y))
+    sum_xx = sum(xi ** 2 for xi in x)
+    try:
+        m = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x ** 2)
+        b = (sum_y - m * sum_x) / n
+    except ZeroDivisionError:
+        return 0.0
+    return max(0.0, m * (n + 1) + b)
+
+
 @login_required
 def dashboard_analytics(request):
-    user_students = Student.objects.filter(user=request.user)
-    
-    # Total Revenue (Sum of payments)
-    total_revenue_result = Payment.objects.filter(
-        student__user=request.user
-    ).aggregate(total=Sum('amount'))
-    
-    # Use Decimal('0.00') instead of 0.00 (float)
+    total_students = Student.objects.filter(user=request.user).count()
+    gender_data = Student.objects.filter(user=request.user).values('gender').annotate(count=Count('id'))
+    gender_labels = [item['gender'] for item in gender_data]
+    gender_counts = [item['count'] for item in gender_data]
+    status_data = Student.objects.filter(user=request.user).values('status').annotate(count=Count('id'))
+    status_labels = [item['status'] for item in status_data]
+    status_counts = [item['count'] for item in status_data]
+
+    dropped_count = Student.objects.filter(user=request.user, status='Dropped').count()
+    churn_rate = (dropped_count / total_students * 100) if total_students > 0 else 0.0
+
+    total_revenue_result = Payment.objects.filter(student__user=request.user).aggregate(total=Sum('amount'))
     total_revenue = total_revenue_result.get('total') or Decimal('0.00')
 
-    # Total Fees Charged (Sum of course costs via Enrollment)
-    total_charges_result = Enrollment.objects.filter(
-        student__user=request.user
-    ).aggregate(total_cost=Sum('course__cost'))
-    
-    # Again use Decimal('0.00') instead of 0.00 (float) [DON'T MAKE THE SAME FREAKING MISTAKE!]
-    total_charges = total_charges_result.get('total_cost') or Decimal('0.00')
-
-    # Calculate Balance (Now safe because both are Decimals)
+    total_charges_result = Enrollment.objects.filter(student__user=request.user).aggregate(total=Sum('course__cost'))
+    total_charges = total_charges_result.get('total') or Decimal('0.00')
     total_fees_owed = total_charges - total_revenue
+    
+    # Using aggregate to sum up the delays recorded for all students
+    total_late_payments = Student.objects.filter(user=request.user).aggregate(total=Sum('payment_delays'))['total'] or 0
 
-    total_students = user_students.count()
-    total_courses = Course.objects.filter(user=request.user).count()
+    # Revenue Prediction
+    monthly_revenue_query = Payment.objects.filter(student__user=request.user)\
+        .annotate(month=TruncMonth('date_of_payment'))\
+        .values('month').annotate(total=Sum('amount')).order_by('month')
+    
+    revenue_series = [float(item['total']) for item in monthly_revenue_query]
+    predicted_revenue = predict_next_revenue(revenue_series)
+    
+    revenue_labels = [item['month'].strftime('%b %Y') for item in monthly_revenue_query]
+    if revenue_labels: revenue_labels.append("Forecast")
+    chart_revenue_data = revenue_series + [predicted_revenue]
+
+    total_attendance_records = Attendance.objects.filter(student__user=request.user).count()
+    present_records = Attendance.objects.filter(student__user=request.user, status='P').count()
+    avg_attendance_rate = (present_records / total_attendance_records * 100) if total_attendance_records > 0 else 0.0
+
+    grade_distribution = {
+        'A (90-100)': Enrollment.objects.filter(student__user=request.user, current_average__gte=90).count(),
+        'B (80-89)': Enrollment.objects.filter(student__user=request.user, current_average__gte=80, current_average__lt=90).count(),
+        'C (70-79)': Enrollment.objects.filter(student__user=request.user, current_average__gte=70, current_average__lt=80).count(),
+        'D (60-69)': Enrollment.objects.filter(student__user=request.user, current_average__gte=60, current_average__lt=70).count(),
+        'F (<60)': Enrollment.objects.filter(student__user=request.user, current_average__lt=60).count(),
+    }
+    grade_labels = list(grade_distribution.keys())
+    grade_counts = list(grade_distribution.values())
 
     context = {
         'total_students': total_students,
+        'churn_rate': churn_rate,
+        'status_labels': json.dumps(status_labels),
+        'status_counts': json.dumps(status_counts),
+        'gender_labels': json.dumps(gender_labels),
+        'gender_counts': json.dumps(gender_counts),
         'total_revenue': total_revenue,
         'total_fees_owed': total_fees_owed,
-        'total_courses': total_courses,
+        'total_late_payments': total_late_payments,
+        'predicted_revenue': predicted_revenue,
+        'revenue_labels': json.dumps(revenue_labels),
+        'revenue_data': json.dumps(chart_revenue_data),
+        'avg_attendance_rate': avg_attendance_rate,
+        'grade_labels': json.dumps(grade_labels),
+        'grade_counts': json.dumps(grade_counts),
     }
-    
+
     return render(request, 'dashboard/analytics.html', context)
 
 @login_required
 def student_detail(request, pk):
-    """
-    Shows a single student's general information and status.
-    Uses get_object_or_404 to ensure the student exists AND belongs to the user.
-    """
     student = get_object_or_404(Student, pk=pk, user=request.user)
-    payments = Payment.objects.filter(student=student).order_by('-date_of_payment')
     
-    # Fetch Enrollment History
+    payments = Payment.objects.filter(student=student).order_by('-date_of_payment')
     enrollment_history = Enrollment.objects.filter(student=student).order_by('-start_date')
     
+    total_days = student.attendance_set.count()
+    present_days = student.attendance_set.filter(status='P').count()
+    attendance_rate = (present_days / total_days) if total_days > 0 else 1.0
+
+    predicted_grade = None
+    ml_message = "Not enough data to predict."
+    
+    try:
+        model_path = os.path.join(settings.BASE_DIR, 'ml_engine', 'grade_predictor.pkl')
+        
+        if os.path.exists(model_path):
+            model = joblib.load(model_path)
+            
+            # Prepare the features exactly as trained
+            # Features: ['attendance_rate', 'study_hours', 'previous_grade', 'payment_delays']
+            features = pd.DataFrame({
+                'attendance_rate': [attendance_rate],
+                'study_hours': [student.study_hours],
+                'previous_grade': [student.previous_grade],
+                'payment_delays': [student.payment_delays] # Assuming this field exists or defaults to 0
+            })
+            
+            # Predict
+            prediction = model.predict(features)[0]
+            predicted_grade = round(prediction, 1)
+            
+            # Generate Insight Message
+            if predicted_grade > 85:
+                ml_message = "High Performer! On track for an A."
+            elif predicted_grade > 70:
+                ml_message = "Solid Performance. Keep consistent."
+            elif predicted_grade > 50:
+                ml_message = "Risk Warning. Needs support in attendance or study hours."
+            else:
+                ml_message = "High Dropout Risk. Immediate intervention required."
+                
+    except Exception as e:
+        print(f"ML Error: {e}")
+        ml_message = "AI Model unavailable."
+
     context = {
         'student': student,
         'payments': payments,
-        'enrollment_history': enrollment_history, # <-- Pass this to template
-        'page_title': f"{student.first_name} {student.last_name}'s Profile", 
+        'enrollment_history': enrollment_history, 
+        'page_title': f"{student.first_name}'s Profile",
+        
+        # Pass AI Data to Template
+        'attendance_rate_percent': round(attendance_rate * 100, 1),
+        'predicted_grade': predicted_grade,
+        'ml_message': ml_message,
     }
     
     return render(request, 'dashboard/student_detail.html', context)
@@ -306,44 +451,41 @@ DAY_ABBREVIATIONS = {
     0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"
 }
 
+# In dashboard/views.py
+
 @login_required
 def take_attendance(request, course_pk):
     course = get_object_or_404(Course, pk=course_pk, user=request.user)
-    
+    students = Student.objects.filter(
+        enrollment__course=course, 
+        status='Active'
+    ).order_by('last_name')
+
     date_str = request.GET.get('date')
     if date_str:
         current_date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
     else:
         current_date = timezone.now().date()
 
+    # SCHEDULE WARNING LOGIC
     schedule_warning = None
+    DAY_ABBREVIATIONS = {
+        0: 'Mon', 1: 'Tue', 2: 'Wed', 3: 'Thu', 4: 'Fri', 5: 'Sat', 6: 'Sun'
+    }
     
-    # Get the current day abbreviation (e.g., Tuesday -> "Tue")
     current_day_abbr = DAY_ABBREVIATIONS.get(current_date.weekday())
-    course_schedule = course.schedule_days or ""
+    course_schedule = course.schedule_days or "" # e.g., "Mon/Wed/Fri"
     
-
     if course_schedule and current_day_abbr:
-        scheduled_days_list = [day.strip() for day in course_schedule.split('/')]
-
-        if current_day_abbr not in scheduled_days_list:
-            # Generate the warning message
+        normalized_schedule = course_schedule.replace(',', ' ').replace('/', ' ')
+        
+        if current_day_abbr not in normalized_schedule:
             schedule_warning = (
                 f"Warning: Attendance is being taken on a {current_date.strftime('%A')}. "
                 f"This course is typically scheduled for: {course_schedule}."
             )
 
-    # Fetch student's active enrollments in this course
-    active_enrollments = Enrollment.objects.filter(course=course, is_active=True)
-    
-    if active_enrollments.exists():
-        students = [e.student for e in active_enrollments]
-    else:
-        students = list(course.student_set.all())
-
-    students.sort(key=lambda x: x.last_name)
-
-    # Saves Attendance
+    # SAVE ATTENDANCE
     if request.method == 'POST':
         for student in students:
             status_key = f"status_{student.id}"
@@ -358,19 +500,22 @@ def take_attendance(request, course_pk):
                 )
         return redirect(f'{request.path}?date={current_date}')
 
+    # PREPARE ROSTER DATA
     roster_data = []
+    
+    # Get all attendance for this course/date in one query for performance
+    existing_attendance = Attendance.objects.filter(course=course, date=current_date)
+    attendance_map = {rec.student.id: rec.status for rec in existing_attendance}
+
     for student in students:
-        attendance = Attendance.objects.filter(
-            course=course, student=student, date=current_date
-        ).first()
-        status = attendance.status if attendance else None
+        # Check if we have a status in the map, else None
+        status = attendance_map.get(student.id)
         roster_data.append((student, status))
 
     context = {
         'course': course,
         'current_date': current_date,
         'roster_data': roster_data,
-        'status_choices': Attendance.AttendanceStatus.choices,
         'schedule_warning': schedule_warning,
     }
     
@@ -413,3 +558,110 @@ def student_attendance_history(request, student_pk):
     }
     
     return render(request, 'dashboard/student_attendance_history.html', context)
+
+@login_required
+def add_grade(request, course_pk):
+    course = get_object_or_404(Course, pk=course_pk, user=request.user)
+    # Get all active students in this course
+    students = Student.objects.filter(enrollment__course=course, status='Active')
+
+    if request.method == 'POST':
+        description = request.POST.get('description') # e.g., "Unit 1 Test"
+        date = request.POST.get('date')
+        max_score = float(request.POST.get('max_score')) # e.g., 50
+
+        # Loop through all students to find their scores in the form data
+        for student in students:
+            score_key = f"score_{student.id}" # Look for input named 'score_5'
+            score_val = request.POST.get(score_key)
+            
+            if score_val: # Only save if a score was entered
+                # 1. Create the Grade Record
+                GradeRecord.objects.create(
+                    student=student,
+                    course=course,
+                    description=description,
+                    date=date,
+                    score_obtained=float(score_val),
+                    max_score=max_score
+                )
+                
+                # 2. Update the Enrollment Average immediately
+                enrollment = Enrollment.objects.filter(student=student, course=course).first()
+                if enrollment:
+                    enrollment.update_average()
+
+        messages.success(request, f"Grades for '{description}' recorded successfully.")
+        return redirect('course_list') # Or back to gradebook
+
+    return render(request, 'dashboard/add_grade.html', {
+        'course': course,
+        'students': students,
+        'current_date': timezone.now()
+    })
+
+@login_required
+def update_grade(request, enrollment_id):
+    enrollment = get_object_or_404(Enrollment, pk=enrollment_id)
+    
+    if request.method == 'POST':
+        try:
+            new_score = float(request.POST.get('grade'))
+            
+            # Grades are out of 100 points for simplicity
+            GradeRecord.objects.create(
+                student=enrollment.student,
+                course=enrollment.course,
+                description="Manual Adjustment", # The name in the history log
+                score_obtained=new_score,
+                max_score=100.0,
+                date=timezone.now()
+            )
+            
+            # Trigger the Recalculation
+            enrollment.update_average()
+            
+            messages.success(request, f"Grade updated and recorded in history.")
+            
+        except ValueError:
+            messages.error(request, "Invalid grade value.")
+            
+    return redirect('student_detail', pk=enrollment.student.pk)
+
+@login_required
+def course_gradebook(request, pk):
+    course = get_object_or_404(Course, pk=pk, user=request.user)
+    enrollments = Enrollment.objects.filter(course=course).select_related('student')
+
+    if request.method == 'POST':
+        for enrollment in enrollments:
+            field_name = f"grade_{enrollment.id}"
+            if field_name in request.POST:
+                try:
+                    new_score = float(request.POST.get(field_name))
+                    
+                    # Check if score is different to avoid spamming history with duplicates
+                    # (Simple check: is the new score different from current avg? 
+                    #  Or just always record it as a new entry. Let's always record.)
+                    
+                    GradeRecord.objects.create(
+                        student=enrollment.student,
+                        course=course,
+                        description="Gradebook Entry",
+                        score_obtained=new_score,
+                        max_score=100.0,
+                        date=timezone.now()
+                    )
+                    
+                    enrollment.update_average()
+                    
+                except ValueError:
+                    continue 
+        
+        messages.success(request, f"Grades recorded for {course.name}")
+        return redirect('course_gradebook', pk=course.pk)
+
+    return render(request, 'dashboard/course_gradebook.html', {
+        'course': course,
+        'enrollments': enrollments
+    })

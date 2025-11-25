@@ -3,33 +3,35 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
-        <div class="card shadow-sm">
+        <div class="card shadow-lg border-0 rounded-lg mt-3">
             <div class="card-header bg-primary text-white">
-                <h4 class="mb-0">Add New Student</h4>
+                <h4 class="mb-0 font-weight-light my-1">Register New Student</h4>
             </div>
             <div class="card-body">
                 <form method="post">
                     {% csrf_token %}
                     
-                    {% for field in form %}
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.help_text %}
-                            <small class="form-text text-muted">{{ field.help_text }}</small>
-                        {% endif %}
-                        {% for error in field.errors %}
-                            <div class="text-danger small">{{ error }}</div>
+                    <div class="row">
+                        {% for field in form %}
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <small class="text-muted">{{ field.help_text }}</small>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
                         {% endfor %}
                     </div>
-                    {% endfor %}
 
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-success">Save Student</button>
-                        <a href="{% url 'fetch_data' %}" class="btn btn-outline-secondary">Cancel</a>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'dashboard_home' %}" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-success px-4">Save Student</button>
                     </div>
                 </form>
-                </div>
+            </div>
         </div>
     </div>
 </div>

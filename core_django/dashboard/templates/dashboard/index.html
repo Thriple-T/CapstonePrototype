@@ -2,124 +2,172 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Your Dashboard</h1>
     <div>
-        <a href="{% url 'add_student' %}" class="btn btn-primary">+ Add Student</a>
-        <a href="{% url 'add_course' %}" class="btn btn-secondary">+ Add Course</a>
+        <h1 class="h3 mb-0 text-gray-800">Dashboard Overview</h1>
+        <p class="text-muted small">Welcome back, {{ user.username }}</p>
+    </div>
+    <div>
+        <a href="{% url 'add_student' %}" class="btn btn-sm btn-primary">+ New Student</a>
+        <a href="{% url 'add_course' %}" class="btn btn-sm btn-secondary">+ New Course</a>
     </div>
 </div>
 
-{% if error %}
-    <div class="alert alert-danger" role="alert">
-        <strong>System Alert:</strong> {{ error }}
+<div class="row">
+
+    <div class="col-xl-4 col-md-6 mb-4">
+        <a href="{% url 'student_list' %}" class="text-decoration-none">
+            <div class="card border-left-primary shadow h-100 py-2 hover-scale">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Students</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ total_students|default:"0" }}
+                            </div>
+                            <small class="text-muted">{{ active_students|default:"0" }} Enrolled</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-people-fill text-gray-300 fs-2"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
     </div>
-{% endif %}
 
-<div class="card mb-5">
-    <div class="card-header">Enrolled Students</div>
-    <div class="card-body">
-        {% if students %}
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead class="table-light">
-                    <tr>
-                        <th>Name</th>
-                        <th>Student ID</th>
-                        <th>Courses</th>
-                        <th>Fees Owed</th>
-                        <th>Status</th>
-                        <th>Dropout Risk</th>
-                        <th>Pred. Grade</th>
-                        <th>Pred. Income</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for student in students %}
-                    <tr>
-                        <td>
-                            <a href="{% url 'student_detail' student.pk %}" class="fw-bold text-decoration-none">
-                                {{ student.first_name }} {{ student.last_name }}
-                            </a>
-                        </td>
-                        <td>{{ student.student_id|default:"-" }}</td>
-                        <td>
-                            {% for course in student.courses.all %}
-                                <span class="badge bg-info text-dark">{{ course.course_code }}</span><br>
-                            {% empty %}
-                                <span class="text-muted">None</span>
-                            {% endfor %}
-                        </td>
-                        <td>
-                            {% if student.current_balance > 0 %}
-                                <span class="text-danger fw-bold">${{ student.current_balance }}</span>
-                            {% else %}
-                                <span class="text-success">Paid</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ student.get_status_display }}</td>
-                        
-                        <td>
-                            <span style="color: {{ student.dropout_risk.color }}; font-weight: bold;">
-                                {{ student.dropout_risk.label }}
-                            </span>
-                        </td>
-                        <td>{{ student.predicted_grade }}</td>
-                        <td>${{ student.predicted_income|floatformat:0 }}</td>
-
-                        <td>
-                            <a href="{% url 'add_payment' student.pk %}" class="btn btn-sm btn-success">Pay</a>
-                            <a href="{% url 'edit_student' student.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                            <a href="{% url 'student_attendance_history' student.pk %}" class="btn btn-sm btn-info">History</a>
-                            <a href="{% url 'student_detail' student.pk %}" class="btn btn-sm btn-outline-info">Detail</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Revenue</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            ${{ total_revenue|floatformat:0|default:"0" }}
+                        </div>
+                        <small class="text-danger">Outstanding: ${{ total_owed|floatformat:0|default:"0" }}</small>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-currency-dollar text-gray-300 fs-2"></i>
+                    </div>
+                </div>
+            </div>
         </div>
-        {% else %}
-            <p class="text-center p-4">No students found.</p>
-        {% endif %}
+    </div>
+
+    <div class="col-xl-4 col-md-6 mb-4">
+        <a href="{% url 'course_list' %}" class="text-decoration-none">
+            <div class="card border-left-info shadow h-100 py-2 hover-scale">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Active Courses</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ courses.count|default:"0" }}
+                            </div>
+                            <small class="text-muted">Classes scheduled</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-book-fill text-gray-300 fs-2"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header">Active Courses</div>
-    <div class="card-body">
-        {% if courses %}
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Course Name</th>
-                        <th>Schedule</th>
-                        <th>Ends On</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for course in courses %}
-                    <tr>
-                        <td>{{ course.name }}</td>
-                        <td>
-                            {% if course.schedule_days %}
-                                {{ course.schedule_days }} 
-                            {% else %}
-                                <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ course.end_date|default:"Ongoing" }}</td>
-                        <td>
-                            <a href="{% url 'manage_roster' course.pk %}">Roster</a> |
-                            <a href="{% url 'take_attendance' course.pk %}">Attendance</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p class="text-center">No courses created yet.</p>
-        {% endif %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <a href="{% url 'student_list' %}" class="card-header py-3 bg-white d-flex justify-content-between align-items-center text-decoration-none">
+                <h6 class="m-0 font-weight-bold text-primary">Recent Students (Last 5)</h6>
+                <small class="text-primary">View Full Roster &rarr;</small>
+            </a>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Student ID</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in student_list %}
+                            <tr onclick="window.location='{% url 'student_list' %}'" style="cursor: pointer;">
+                                <td class="fw-bold">{{ student.first_name }} {{ student.last_name }}</td>
+                                <td class="text-muted">{{ student.student_id }}</td>
+                                <td>
+                                    {% if student.status == 'Active' %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">{{ student.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ student.date_added|date:"M d" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">No students found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <a href="{% url 'course_list' %}" class="card-header py-3 bg-white d-flex justify-content-between align-items-center text-decoration-none">
+                <h6 class="m-0 font-weight-bold text-dark">Active Courses</h6>
+                <small class="text-muted">View All &rarr;</small>
+            </a>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Course Name</th>
+                                <th>Schedule</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for course in courses %}
+                            <tr onclick="window.location='{% url 'course_list' %}'" style="cursor: pointer;">
+                                <td class="fw-bold text-primary">{{ course.name }}</td>
+                                <td>{{ course.schedule_days }}</td>
+                                <td>{{ course.start_time|time:"H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">No courses created yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hover-scale {
+        transition: transform 0.2s;
+    }
+    .hover-scale:hover {
+        transform: scale(1.02);
+        cursor: pointer;
+    }
+    /* Fix for Big Cards: Ensure Font size is contained */
+    .h5 { font-size: 1.25rem; }
+    .fs-2 { font-size: 2rem; }
+</style>
 {% endblock %}

@@ -1,0 +1,57 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<h2>Add Grades: {{ course.name }}</h2>
+
+<div class="card shadow mt-4">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row mb-4 p-3 bg-light border rounded">
+                <div class="col-md-4">
+                    <label class="form-label">Assignment Name</label>
+                    <input type="text" name="description" class="form-control" placeholder="e.g. Quiz 1" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Date</label>
+                    <input type="date" name="date" class="form-control" value="{{ current_date|date:'Y-m-d' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max Score (Total Points)</label>
+                    <input type="number" name="max_score" class="form-control" value="100" min="1" required>
+                </div>
+            </div>
+
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Score Obtained</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td>{{ student.first_name }} {{ student.last_name }}</td>
+                        <td>
+                            <input type="number" 
+                                   name="score_{{ student.id }}" 
+                                   class="form-control" 
+                                   step="0.5" 
+                                   placeholder="-"
+                                   style="width: 150px;">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="{% url 'course_list' %}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-success px-5">Save Grades</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

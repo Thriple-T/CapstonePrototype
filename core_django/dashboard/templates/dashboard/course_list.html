@@ -46,6 +46,7 @@
                         <td>
                             <a href="{% url 'manage_roster' course.pk %}" class="btn btn-sm btn-outline-primary">Roster</a>
                             <a href="{% url 'take_attendance' course.pk %}" class="btn btn-sm btn-success">Attendance</a>
+                            <a href="{% url 'course_gradebook' course.pk %}" class="btn btn-sm btn-warning flex-grow-1">Grades</a>
                             <a href="{% url 'edit_course' course.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
                             <a href="{% url 'delete_course' course.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
                         </td>

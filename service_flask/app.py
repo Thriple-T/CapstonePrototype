@@ -11,7 +11,7 @@ SHARED_SECRET_KEY = os.environ.get('SHARED_SECRET_KEY')
 if not SHARED_SECRET_KEY:
     raise ValueError("No SHARED_SECRET_KEY set in .env file")
 
-# --- Authentication Decorator ---
+# Authentication Decorator
 
 def token_required(f):
     """
@@ -33,7 +33,7 @@ def token_required(f):
         if not token:
             return jsonify({"message": "Token is missing"}), 401
 
-        # --- Token Validation ---
+        # Token Validation
         try:
             # Decode the token using the shared secret
             # This verifies the signature and expiration (if any)
@@ -48,7 +48,7 @@ def token_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# --- API Endpoints ---
+# API Endpoints
 
 @app.route("/")
 def home():
@@ -83,17 +83,14 @@ def validate_student(token_payload):
     This endpoint receives student data from Django and performs 
     complex/specialized validation.
     """
-    
-    # 1. The @token_required decorator ensures the request is trusted.
-    # 2. Can get the data Django sent via the request body:
+
     student_data = request.get_json()
     
-    # --- PROTOTYPE VALIDATION LOGIC ---
+    # PROTOTYPE VALIDATION LOGIC
     # In a real app, run complex checks here (e.g., check for 
     # profanity, verify an external license key, cross-reference against
     # another database).
-    
-    # For this test, we'll check if the student ID is "123" and force a failure.
+
     if student_data.get('student_id') == '123':
         return jsonify({
             "validation_ok": False,
@@ -150,8 +147,6 @@ def predict_risk(token_payload):
             "label": risk_label
         }
     })
-
-# --- Run the App ---
 
 if __name__ == '__main__':
     # Run on port 5001 to avoid conflicting with Django
